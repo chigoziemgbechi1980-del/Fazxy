@@ -116,9 +116,9 @@ function ensureSeed() {
     site_name: 'My Life Story',
     logo_url: '/logo.svg',
     fee: 3000,
-    bank_name: 'Bank transfer details will be available soon',
-    account_name: 'Bank transfer details will be available soon',
-    account_number: 'Bank transfer details will be available soon',
+    bank_name: 'OPay',
+    account_name: 'Chigozie Mgbechi',
+    account_number: '9030265140',
     contact_email: 'hello@mylifestory.example',
     contact_phone: '+234 800 000 0000',
     homepage_intro: 'Every life has a story worth telling. We help people share their experiences, memories, achievements, and legacy with the world in a respectful and professional way.',
@@ -185,5 +185,3 @@ module.exports = {
   ensureSeed,
   ensureDefaultAdmin
 };
-
-

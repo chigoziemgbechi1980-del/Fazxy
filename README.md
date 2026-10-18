@@ -35,6 +35,12 @@ Password: Favour1478
 
 This should be changed after deployment.
 
+## Bank transfer details (default seed)
+
+Bank/Provider: OPay
+Account name: Chigozie Mgbechi
+Account number: 9030265140
+
 ## API base
 
 Frontend calls the API at:
