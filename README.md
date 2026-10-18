@@ -31,7 +31,7 @@ A real biography publishing platform MVP built with React, TypeScript, Express, 
 ## Default admin account
 
 Email: chigoziemgbechi1980@gmail.com
-Password: Admin@123456
+Password: Favour1478
 
 This should be changed after deployment.
 
@@ -57,3 +57,7 @@ The app is structured to be Cloudflare-friendly. For production deployment, you 
 - Admin sessions are stored in cookies using express-session.
 - Bank transfer details are blank by default and only appear once configured by an admin.
 - Sensitive admin actions are logged into the audit table.
+
+## Admin password reset helper
+
+A helper script is included in `scripts/set-admin-password.js` for updating the admin password on an existing local database.

@@ -46,8 +46,8 @@ const defaultForm: SubmissionForm = {
   achievements: '',
   businessVentures: '',
   hobbies: '',
-  challenges: '',
   majorExperiences: '',
+  challenges: '',
   contributions: '',
   futureAmbitions: '',
   messageToWorld: '',
@@ -58,102 +58,121 @@ const defaultForm: SubmissionForm = {
   category: 'Leadership'
 };
 
+const initialAdminLogin = {
+  email: 'chigoziemgbechi1980@gmail.com',
+  password: 'Favour1478'
+};
+
 export default function App() {
   const [route, setRoute] = useState<string>(window.location.pathname);
   const [siteSettings, setSiteSettings] = useState<Record<string, any>>({});
   const [categories, setCategories] = useState<any[]>([]);
   const [biographies, setBiographies] = useState<any[]>([]);
-  const [selectedBiography, setSelectedBiography] = useState<any|null>(null);
-  const [submission, setSubmission] = useState<any|null>(null);
+  const [selectedBiography, setSelectedBiography] = useState<any | null>(null);
+  const [submission, setSubmission] = useState<any | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [form, setForm] = useState<SubmissionForm>(defaultForm);
   const [step, setStep] = useState(0);
-  const [admin, setAdmin] = useState<any|null>(null);
-  const [adminLogin, setAdminLogin] = useState({ email: 'chigoziemgbechi1980@gmail.com', password: 'Admin@123456' });
+  const [admin, setAdmin] = useState<any | null>(null);
+  const [adminLogin, setAdminLogin] = useState(initialAdminLogin);
   const [adminData, setAdminData] = useState<any[]>([]);
   const [paymentReference, setPaymentReference] = useState('');
   const [resultsMessage, setResultsMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
 
+  const navigate = (path: string) => {
+    window.history.pushState({}, '', path);
+    setRoute(path);
+  };
+
+  const fetchPublicData = async () => {
+    try {
+      const [settingsRes, categoriesRes, biographiesRes] = await Promise.all([
+        fetch(`${API_BASE}/site-settings`, { credentials: 'include' }),
+        fetch(`${API_BASE}/categories`),
+        fetch(`${API_BASE}/public/biographies`)
+      ]);
+
+      const settingsData = await settingsRes.json();
+      const categoryData = await categoriesRes.json();
+      const biographyData = await biographiesRes.json();
+
+      setSiteSettings(settingsData.settings || {});
+      setCategories(categoryData.categories || []);
+      setBiographies(biographyData.biographies || []);
+    } catch (err) {
+      setSiteSettings({});
+      setCategories([]);
+      setBiographies([]);
+    }
+  };
+
   useEffect(() => {
     const onPop = () => setRoute(window.location.pathname);
     window.addEventListener('popstate', onPop);
+    fetchPublicData();
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/site-settings`, { credentials: 'include' })
+    if (!route.startsWith('/biography/')) return;
+    const slug = route.replace('/biography/', '').trim();
+    fetch(`${API_BASE}/public/biographies/${slug}`)
       .then((res) => res.json())
-      .then((data) => setSiteSettings(data.settings || {}))
-      .catch(() => setSiteSettings({}));
-
-    fetch(`${API_BASE}/categories`)
-      .then((res) => res.json())
-      .then((data) => setCategories(data.categories || []))
-      .catch(() => setCategories([]));
-
-    fetch(`${API_BASE}/public/biographies`)
-      .then((res) => res.json())
-      .then((data) => setBiographies(data.biographies || []))
-      .catch(() => setBiographies([]));
-  }, []);
-
-  useEffect(() => {
-    if (route.startsWith('/biography/')) {
-      const slug = route.replace('/biography/', '').trim();
-      fetch(`${API_BASE}/public/biographies/${slug}`)
-        .then((res) => res.json())
-        .then((data) => setSelectedBiography(data.biography || null))
-        .catch(() => setSelectedBiography(null));
-    }
+      .then((data) => setSelectedBiography(data.biography || null))
+      .catch(() => setSelectedBiography(null));
   }, [route]);
 
   useEffect(() => {
-    if (route === '/admin') {
-      fetch(`${API_BASE}/admin/session`, { credentials: 'include' })
-        .then((res) => {
-          if (!res.ok) throw new Error('Not logged in');
-          return res.json();
-        })
-        .then((data) => {
-          setAdmin(data.admin);
-          fetchAdminData();
-        })
-        .catch(() => {
-          setAdmin(null);
-          window.history.pushState({}, '', '/admin/login');
-          setRoute('/admin/login');
-        });
-    }
+    if (route !== '/admin') return;
+    fetch(`${API_BASE}/admin/session`, { credentials: 'include' })
+      .then((res) => {
+        if (!res.ok) throw new Error('Not logged in');
+        return res.json();
+      })
+      .then((data) => {
+        setAdmin(data.admin);
+        fetchAdminData();
+      })
+      .catch(() => {
+        setAdmin(null);
+        navigate('/admin/login');
+      });
   }, [route]);
 
   const fetchAdminData = async () => {
-    const res = await fetch(`${API_BASE}/admin/submissions`, { credentials: 'include' });
-    const data = await res.json();
-    setAdminData(data.submissions || []);
-  };
+    const response = await fetch(`${API_BASE}/admin/submissions`, { credentials: 'include' });
+    if (!response.ok) {
+      setAdminData([]);
+      return;
+    }
 
-  const navigate = (path: string) => {
-    window.history.pushState({}, '', path);
-    setRoute(path);
+    const data = await response.json();
+    setAdminData(data.submissions || []);
   };
 
   const updateField = (key: keyof SubmissionForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const steps = [
-    'Personal Details',
-    'Life Story',
-    'Media',
-    'Contact & Review'
-  ];
+  const steps = ['Personal Details', 'Life Story', 'Media', 'Contact & Review'];
 
   const submitForm = async () => {
     setErrorMessage('');
     setResultsMessage('');
+
+    const requiredFields = [
+      'fullName', 'title', 'profession', 'shortIntro', 'childhood',
+      'education', 'careerJourney', 'achievements', 'submitterName', 'submitterEmail'
+    ] as const;
+
+    const missing = requiredFields.filter((key) => !String(form[key]).trim());
+    if (missing.length) {
+      setErrorMessage('Please complete all required fields before submitting.');
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE}/submissions`, {
@@ -169,17 +188,19 @@ export default function App() {
       }
 
       setSubmission(data.submission);
+
       if (galleryFiles.length > 0) {
-        const input = new FormData();
-        galleryFiles.forEach((file) => input.append('photos', file));
+        const mediaForm = new FormData();
+        galleryFiles.forEach((file) => mediaForm.append('photos', file));
         await fetch(`${API_BASE}/submissions/${data.submission.id}/media`, {
           method: 'POST',
-          body: input
+          body: mediaForm
         });
       }
 
       setResultsMessage(`Submission created successfully. Your reference number is ${data.submission.reference}.`);
       setForm(defaultForm);
+      setGalleryFiles([]);
       setStep(0);
       navigate('/submission-success');
     } catch (error: any) {
@@ -209,7 +230,7 @@ export default function App() {
     setPaymentReference('');
   };
 
-  const handleAdminLogin = async (event: React.FormEvent) => {
+  const handleAdminLogin = async (event: any) => {
     event.preventDefault();
     const response = await fetch(`${API_BASE}/admin/login`, {
       method: 'POST',
@@ -235,18 +256,24 @@ export default function App() {
   };
 
   const markVerified = async (id: string) => {
-    await fetch(`${API_BASE}/admin/submissions/${id}/verify-payment`, { method: 'POST', credentials: 'include' });
+    await fetch(`${API_BASE}/admin/submissions/${id}/verify-payment`, {
+      method: 'POST',
+      credentials: 'include'
+    });
     fetchAdminData();
   };
 
   const markPublished = async (id: string) => {
-    await fetch(`${API_BASE}/admin/submissions/${id}/publish`, { method: 'POST', credentials: 'include' });
+    await fetch(`${API_BASE}/admin/submissions/${id}/publish`, {
+      method: 'POST',
+      credentials: 'include'
+    });
     fetchAdminData();
   };
 
   const currentSettings = useMemo(() => ({
     site_name: siteSettings.site_name || 'My Life Story',
-    fee: siteSettings.fee || 3000,
+    fee: Number(siteSettings.fee || 3000),
     bank_name: siteSettings.bank_name || 'Bank transfer details will be available soon',
     account_name: siteSettings.account_name || 'Bank transfer details will be available soon',
     account_number: siteSettings.account_number || 'Bank transfer details will be available soon',
@@ -257,31 +284,36 @@ export default function App() {
 
   const filteredBiographies = useMemo(() => {
     return biographies.filter((bio) => {
-      const matches = !search || [bio.title, bio.full_name, bio.profession].some((v) => String(v || '').toLowerCase().includes(search.toLowerCase()));
-      const categoryMatch = !selectedCategory || bio.category === selectedCategory;
-      return matches && categoryMatch;
+      const query = search.trim().toLowerCase();
+      const matchesSearch = !query || [bio.title, bio.full_name, bio.profession].some((value) =>
+        String(value || '').toLowerCase().includes(query)
+      );
+      const matchesCategory = !selectedCategory || bio.category === selectedCategory;
+      return matchesSearch && matchesCategory;
     });
   }, [biographies, search, selectedCategory]);
+
+  const renderHeader = () => (
+    <header className="main-header">
+      <div className="nav container">
+        <div className="brand" onClick={() => navigate('/')}>{currentSettings.site_name}</div>
+        <nav>
+          <button onClick={() => navigate('/')}>Home</button>
+          <button onClick={() => navigate('/explore')}>Explore</button>
+          <button onClick={() => navigate('/publish')}>Publish</button>
+          <button onClick={() => navigate('/admin/login')}>Admin</button>
+        </nav>
+      </div>
+    </header>
+  );
 
   if (route.startsWith('/biography/')) {
     return (
       <div className="page-shell">
-        <header className="main-header">
-          <div className="nav container">
-            <div className="brand" onClick={() => navigate('/')}>My Life Story</div>
-            <nav>
-              <button onClick={() => navigate('/')}>Home</button>
-              <button onClick={() => navigate('/explore')}>Explore</button>
-              <button onClick={() => navigate('/publish')}>Publish</button>
-              <button onClick={() => navigate('/admin/login')}>Admin</button>
-            </nav>
-          </div>
-        </header>
-
+        {renderHeader()}
         <main className="container biography-detail">
           {selectedBiography ? (
             <>
-              <div className="hero-banner small-banner" style={{ backgroundImage: 'linear-gradient(...))' }} />
               <div className="biography-header">
                 <div>
                   <span className="eyebrow">{selectedBiography.category || 'Biography'}</span>
@@ -289,7 +321,10 @@ export default function App() {
                   <h3>{selectedBiography.full_name}</h3>
                   <p>{selectedBiography.profession}</p>
                 </div>
-                <img src={selectedBiography.profile_photo || 'https://images.unsplash.com/...'} alt={selectedBiography.full_name} />
+                <img
+                  src={selectedBiography.profile_photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=80'}
+                  alt={selectedBiography.full_name}
+                />
               </div>
 
               <div className="bio-grid">
@@ -328,8 +363,8 @@ export default function App() {
                     <li><strong>Profession:</strong> {selectedBiography.profession}</li>
                   </ul>
                   <div className="share-buttons">
-                    <button>Share</button>
-                    <button>Copy Link</button>
+                    <button className="secondary-btn" type="button">Share</button>
+                    <button className="secondary-btn" type="button">Copy Link</button>
                   </div>
                 </aside>
               </div>
@@ -349,10 +384,18 @@ export default function App() {
           <h2>Admin Login</h2>
           <form onSubmit={handleAdminLogin}>
             <label>Email</label>
-            <input type="email" value={adminLogin.email} onChange={(e) => setAdminLogin((prev) => ({ ...prev, email: e.target.value }))} />
+            <input
+              type="email"
+              value={adminLogin.email}
+              onChange={(e) => setAdminLogin((prev) => ({ ...prev, email: e.target.value }))}
+            />
             <label>Password</label>
-            <input type="password" value={adminLogin.password} onChange={(e) => setAdminLogin((prev) => ({ ...prev, password: e.target.value }))} />
-            <button type="submit">Login</button>
+            <input
+              type="password"
+              value={adminLogin.password}
+              onChange={(e) => setAdminLogin((prev) => ({ ...prev, password: e.target.value }))}
+            />
+            <button type="submit" className="primary-btn">Login</button>
           </form>
           {errorMessage && <p className="error">{errorMessage}</p>}
         </div>
@@ -367,8 +410,8 @@ export default function App() {
           <div className="nav container">
             <div className="brand">My Life Story Admin</div>
             <nav>
-              <button onClick={fetchAdminData}>Refresh</button>
-              <button onClick={handleAdminLogout}>Logout</button>
+              <button onClick={fetchAdminData} className="secondary-btn">Refresh</button>
+              <button onClick={handleAdminLogout} className="secondary-btn">Logout</button>
             </nav>
           </div>
         </header>
@@ -395,16 +438,16 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {adminData.map((submission) => (
-                  <tr key={submission.id}>
-                    <td>{submission.reference}</td>
-                    <td>{submission.full_name}</td>
-                    <td>{submission.title}</td>
-                    <td>{submission.payment_status}</td>
-                    <td>{submission.publication_status}</td>
+                {adminData.map((item) => (
+                  <tr key={item.id}>
+                    <td>{item.reference}</td>
+                    <td>{item.full_name}</td>
+                    <td>{item.title}</td>
+                    <td>{item.payment_status}</td>
+                    <td>{item.publication_status}</td>
                     <td>
-                      <button onClick={() => markVerified(submission.id)}>Verify</button>
-                      <button onClick={() => markPublished(submission.id)}>Publish</button>
+                      <button onClick={() => markVerified(item.id)} className="secondary-btn">Verify</button>
+                      <button onClick={() => markPublished(item.id)} className="primary-btn">Publish</button>
                     </td>
                   </tr>
                 ))}
@@ -419,11 +462,7 @@ export default function App() {
   if (route === '/submission-success') {
     return (
       <div className="page-shell">
-        <header className="main-header">
-          <div className="nav container">
-            <div className="brand" onClick={() => navigate('/')}>My Life Story</div>
-          </div>
-        </header>
+        {renderHeader()}
         <main className="container centered-panel">
           <div className="success-card">
             <h2>Submission received</h2>
@@ -434,10 +473,60 @@ export default function App() {
               <p>Account name: {currentSettings.account_name}</p>
               <p>Account number: {currentSettings.account_number}</p>
               <label>Transfer Reference</label>
-              <input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Enter transfer reference" />
-              <button onClick={handlePaymentSubmit}>I Have Made Payment</button>
+              <input
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Enter transfer reference"
+              />
+              <button onClick={handlePaymentSubmit} className="primary-btn">I Have Made Payment</button>
             </div>
             {errorMessage && <p className="error">{errorMessage}</p>}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (route === '/explore') {
+    return (
+      <div className="page-shell">
+        {renderHeader()}
+        <main className="container form-page">
+          <div className="search-block">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search biographies by name, title, or profession"
+            />
+          </div>
+
+          <div className="category-filter-row">
+            <button className={selectedCategory === '' ? 'active-filter' : ''} onClick={() => setSelectedCategory('')}>All</button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                className={selectedCategory === cat.name ? 'active-filter' : ''}
+                onClick={() => setSelectedCategory(cat.name)}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          <div className="card-grid explore-grid">
+            {filteredBiographies.map((bio) => (
+              <article key={bio.id} className="bio-card" onClick={() => navigate(`/biography/${bio.public_slug}`)}>
+                <img
+                  src={bio.profile_photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=80'}
+                  alt={bio.title}
+                />
+                <div>
+                  <span className="tag">{bio.category || 'Biography'}</span>
+                  <h3>{bio.title}</h3>
+                  <p>{bio.full_name}</p>
+                </div>
+              </article>
+            ))}
           </div>
         </main>
       </div>
@@ -447,18 +536,7 @@ export default function App() {
   if (route === '/publish') {
     return (
       <div className="page-shell">
-        <header className="main-header">
-          <div className="nav container">
-            <div className="brand" onClick={() => navigate('/')}>My Life Story</div>
-            <nav>
-              <button onClick={() => navigate('/')}>Home</button>
-              <button onClick={() => navigate('/explore')}>Explore</button>
-              <button onClick={() => navigate('/publish')}>Publish</button>
-              <button onClick={() => navigate('/admin/login')}>Admin</button>
-            </nav>
-          </div>
-        </header>
-
+        {renderHeader()}
         <main className="container form-page">
           <h1>Publish Your Biography</h1>
           <div className="stepper">
@@ -531,9 +609,9 @@ export default function App() {
           )}
 
           <div className="form-actions">
-            {step > 0 && <button onClick={() => setStep((prev) => prev - 1)}>Back</button>}
-            {step < steps.length - 1 && <button onClick={() => setStep((prev) => prev + 1)}>Next</button>}
-            {step === steps.length - 1 && <button onClick={submitForm}>Submit Biography</button>}
+            {step > 0 && <button onClick={() => setStep((prev) => prev - 1)} className="secondary-btn">Back</button>}
+            {step < steps.length - 1 && <button onClick={() => setStep((prev) => prev + 1)} className="primary-btn">Next</button>}
+            {step === steps.length - 1 && <button onClick={submitForm} className="primary-btn">Submit Biography</button>}
           </div>
         </main>
       </div>
@@ -542,17 +620,7 @@ export default function App() {
 
   return (
     <div className="page-shell">
-      <header className="main-header">
-        <div className="nav container">
-          <div className="brand" onClick={() => navigate('/')}>{currentSettings.site_name}</div>
-          <nav>
-            <button onClick={() => navigate('/')}>Home</button>
-            <button onClick={() => navigate('/explore')}>Explore</button>
-            <button onClick={() => navigate('/publish')}>Publish</button>
-            <button onClick={() => navigate('/admin/login')}>Admin</button>
-          </nav>
-        </div>
-      </header>
+      {renderHeader()}
 
       <main>
         <section className="hero container">
@@ -565,13 +633,21 @@ export default function App() {
               <button className="secondary-btn" onClick={() => navigate('/explore')}>Explore Biographies</button>
             </div>
           </div>
+
           <div className="hero-visual">
-            <img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80" alt="Biographer portrait" />
+            <img
+              src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80"
+              alt="Biographer portrait"
+            />
           </div>
         </section>
 
         <section className="search container">
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search biographies by name, title, or profession" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search biographies by name, title, or profession"
+          />
         </section>
 
         <section className="categories container">
@@ -595,7 +671,10 @@ export default function App() {
           <div className="card-grid">
             {filteredBiographies.slice(0, 3).map((bio) => (
               <article key={bio.id} className="bio-card" onClick={() => navigate(`/biography/${bio.public_slug}`)}>
-                <img src={bio.profile_photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=80'} alt={bio.title} />
+                <img
+                  src={bio.profile_photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=900&q=80'}
+                  alt={bio.title}
+                />
                 <div>
                   <span className="tag">{bio.category || 'Biography'}</span>
                   <h3>{bio.title}</h3>
@@ -638,7 +717,10 @@ export default function App() {
           <div className="card-grid">
             {filteredBiographies.slice(0, 4).map((bio) => (
               <article key={bio.id} className="bio-card small" onClick={() => navigate(`/biography/${bio.public_slug}`)}>
-                <img src={bio.profile_photo || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80'} alt={bio.title} />
+                <img
+                  src={bio.profile_photo || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=80'}
+                  alt={bio.title}
+                />
                 <div>
                   <h3>{bio.title}</h3>
                   <p>{bio.full_name}</p>
@@ -671,3 +753,17 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

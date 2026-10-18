@@ -155,7 +155,7 @@ function ensureSeed() {
 
 function ensureDefaultAdmin() {
   const email = process.env.ADMIN_EMAIL || 'chigoziemgbechi1980@gmail.com';
-  const password = process.env.ADMIN_PASSWORD || 'Admin@123456';
+  const password = process.env.ADMIN_PASSWORD || 'Favour1478';
   const existing = db.prepare('SELECT id FROM admin_users WHERE email = ?').get(email);
 
   if (!existing) {
@@ -185,3 +185,5 @@ module.exports = {
   ensureSeed,
   ensureDefaultAdmin
 };
+
+
